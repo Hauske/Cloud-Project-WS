@@ -5,7 +5,13 @@ import routes from './routes';
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Configuración de CORS
+app.use(cors({
+  origin: 'http://localhost:5173', // URL del frontend de Vite
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
 app.use(express.json());
 app.use(routes);
