@@ -9,7 +9,7 @@ function validEmail(email: string): boolean {
 }
 
 class AuthController {
-    async createUser(req: Request, res: Response){
+    async createUser(req: Request, res: Response) {
         try {
             const {
                 name,
@@ -63,11 +63,11 @@ class AuthController {
         }
         catch(e) {
             console.log('error:', e);
-            return res.status(500).json({ error: 'There was an error creating the client' });
+            return res.status(500).json({ e: 'There was an error creating the client' });
         }
     };
 
-    async loginUser(req: Request, res: Response){
+    async loginUser(req: Request, res: Response) {
         try {
             const {email, password} = req.body;
 
@@ -107,7 +107,7 @@ class AuthController {
         }
         catch(e) {
             console.error('error:', e);
-        return res.status(500).json({ error: 'There was an error logging in the user' });
+            return res.status(500).json({ e: 'There was an error logging in the user' });
         }
     }
 }
