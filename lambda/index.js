@@ -1,7 +1,8 @@
-const chromium = require('chrome-aws-lambda');
-const AWS = require('aws-sdk');
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
-const s3 = new AWS.S3();
+const s3Client = new S3Client();
 
 exports.handler = async (event) => {
     let browser = null;
@@ -14,20 +15,37 @@ exports.handler = async (event) => {
             payload = JSON.parse(event.body);
         }
         
-        const { cvId, htmlContent, s3Bucket, fileName } = payload;
+        const { cvId, htmlContent, s3Bucket, userName, templateId, cvTitle } = payload;
         
-        if (!htmlContent || !s3Bucket || !fileName) {
-            throw new Error('Faltan parámetros requeridos: cvId, htmlContent, s3Bucket, fileName');
+        if (!htmlContent || !s3Bucket) {
+            throw new Error('Faltan parámetros requeridos: cvId, htmlContent, s3Bucket');
         }
         
-        console.log('Parámetros validados:', { cvId, s3Bucket, fileName });
+        // Mapeo de templateId a nombres legibles
+        const templateNames = {
+            'executive': 'Ejecutivo',
+            'minimal-premium': 'Minimalista',
+            'minimalist-premium': 'Minimalista',
+            'sidebar-dark': 'BarraLateral',
+            'modern-grid': 'GridModerno',
+            'compact': 'Compacto',
+            'elegant': 'Elegante'
+        };
+        
+        // Generar estructura: CVs/{userName}/{cvId}/CV-{cvTitle}-{tipo}.pdf
+        const templateName = templateNames[templateId] || 'Ejecutivo';
+        const safeUserName = (userName || 'user').replace(/[^a-zA-Z0-9-_]/g, '_');
+        const safeCvTitle = (cvTitle || 'CV').replace(/[^a-zA-Z0-9-_]/g, '_');
+        const fileName = `CVs/${safeUserName}/${cvId}/CV-${safeCvTitle}-${templateName}.pdf`;
+        
+        console.log('Parámetros validados:', { cvId, s3Bucket, userName, fileName });
         
         // Iniciar Chromium
         console.log('Iniciando Chromium...');
-        browser = await chromium.puppeteer.launch({
+        browser = await puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath,
+            executablePath: await chromium.executablePath(),
             headless: chromium.headless,
         });
         
@@ -57,17 +75,17 @@ exports.handler = async (event) => {
         
         // Subir a S3
         console.log('Subiendo a S3...');
-        const uploadParams = {
+        const uploadCommand = new PutObjectCommand({
             Bucket: s3Bucket,
             Key: fileName,
             Body: pdfBuffer,
-            ContentType: 'application/pdf',
-            ACL: 'public-read'
-        };
+            ContentType: 'application/pdf'
+        });
         
-        const uploadResult = await s3.upload(uploadParams).promise();
+        await s3Client.send(uploadCommand);
         
-        console.log('PDF subido exitosamente:', uploadResult.Location);
+        const pdfUrl = `https://${s3Bucket}.s3.amazonaws.com/${fileName}`;
+        console.log('PDF subido exitosamente:', pdfUrl);
         
         return {
             statusCode: 200,
@@ -77,7 +95,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({
                 message: 'PDF generado exitosamente',
-                pdfUrl: uploadResult.Location,
+                pdfUrl: pdfUrl,
                 fileName: fileName,
                 cvId: cvId
             })
