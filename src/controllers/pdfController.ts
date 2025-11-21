@@ -6,7 +6,7 @@ class PDFController {
     async generatePDF(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            const { htmlContent } = req.body;
+            const { htmlContent, templateId } = req.body;
 
             if (!htmlContent) {
                 return res.status(400).json({ error: 'htmlContent es requerido' });
@@ -17,6 +17,11 @@ class PDFController {
                 select: {
                     id: true,
                     data: true,
+                    user: {
+                        select: {
+                            name: true
+                        }
+                    }
                 }
             });
 
@@ -24,16 +29,25 @@ class PDFController {
                 return res.status(404).json({ error: 'CV no encontrado' });
             }
 
+            // Extraer el título del CV desde cv.data
+            const cvData = cv.data as any;
+            const cvTitle = cvData?.title || 'CV';
+            // Sanitizar el título para usarlo en nombre de archivo
+            const safeCvTitle = cvTitle.replace(/[^a-zA-Z0-9-_\s]/g, '').replace(/\s+/g, '-');
+
             const payload = {
                 cvId: id,
                 htmlContent: htmlContent,
                 s3Bucket: process.env.AWS_S3_BUCKET || 'cvcloud-pdfs-bucket',
-                fileName: `cv-${id}-${Date.now()}.pdf`
+                userName: cv.user?.name || 'user',
+                templateId: templateId || 'executive',
+                cvTitle: safeCvTitle
             };
 
             console.log('Enviando solicitud a API Gateway:', { 
-                cvId: id, 
-                fileName: payload.fileName,
+                cvId: id,
+                cvTitle: safeCvTitle,
+                templateId: templateId || 'executive',
                 apiUrl: process.env.API_GATEWAY_URL 
             });
 
