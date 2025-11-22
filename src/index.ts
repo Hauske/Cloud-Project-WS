@@ -12,7 +12,10 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+// Aumentar límite para imágenes base64 en HTML
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
 app.use(routes);
 
 app.get('/', (req: Request, res: Response) => {
