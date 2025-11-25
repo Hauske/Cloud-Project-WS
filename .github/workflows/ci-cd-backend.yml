@@ -29,7 +29,6 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build & Push Backend
-        working-directory: ./Cloud-Project-WS # <--- Importante
         run: |
           docker build -t ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_BACKEND }}:latest .
           docker push ${{ env.ECR_REGISTRY }}/${{ env.IMAGE_BACKEND }}:latest
