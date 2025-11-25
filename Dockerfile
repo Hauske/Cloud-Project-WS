@@ -9,4 +9,4 @@ COPY . .
 RUN if [ -f ./prisma/schema.prisma ]; then npx prisma generate; fi
 
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "./node_modules/ts-node/dist/bin.js", "src/index.ts"]
