@@ -45,7 +45,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           # Corregido: Usar el secreto correcto para la llave
-          key: ${{ secrets.EC2_SSH_KEY }} 
+          key: ${{ secrets.EC2_SHH_KEY }} 
           port: 22
           # Pasamos todas las variables de la app a la sesión SSH
           envs: AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_SESSION_TOKEN,AWS_ACCOUNT_ID,DATABASE_URL,JWT_SECRET,SALT,AWS_S3_BUCKET,API_GATEWAY_URL,AWS_REGION
