@@ -5,6 +5,7 @@ COPY package.json package-lock.json* pnpm-lock.yaml* ./
 RUN npm install --production
 COPY . .
 
+RUN npm run build
 # Genera el cliente de Prisma si existe
 RUN if [ -f ./prisma/schema.prisma ]; then npx prisma generate; fi
 
