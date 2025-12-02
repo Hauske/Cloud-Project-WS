@@ -9,9 +9,6 @@ function validEmail(email: string): boolean {
 }
 
 class AuthController {
-<<<<<<< HEAD
-    async createUser(req: Request, res: Response) {
-=======
     async getAllUsers(req: Request, res: Response) {
         try {
             const users = await prisma.user.findMany({
@@ -38,7 +35,6 @@ class AuthController {
     }
 
     async createUser(req: Request, res: Response){
->>>>>>> deploy
         try {
             const {
                 name,
