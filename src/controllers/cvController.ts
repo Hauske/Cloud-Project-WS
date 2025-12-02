@@ -1,93 +1,171 @@
 import { Request, Response } from "express";
 import prisma from "../prisma/client";
 
-class CvController {
-    async createCv(req: Request, res: Response) {
+class CVController {
+    // [DEBUG] Obtener TODOS los CVs (temporal para testing)
+    async getAllCVs(req: Request, res: Response) {
         try {
-            const { userId, data }  = req.body;
-            const cv = await prisma.cV.create({ data: { userId, data } });
-            
-            res.status(201).json(cv);
-        }
-        catch(e) {
-            res.status(500).json({ e: 'Failed to create CV' });
+            const cvs = await prisma.cV.findMany({
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        }
+                    }
+                }
+            });
+
+            return res.status(200).json({
+                total: cvs.length,
+                cvs
+            });
+        } catch (e) {
+            console.error('Error fetching all CVs:', e);
+            return res.status(500).json({ error: 'Error al obtener los CVs' });
         }
     }
 
-    async getCvsByUser(req: Request, res: Response) {
+    // Obtener todos los CVs de un usuario
+    async getUserCVs(req: Request, res: Response) {
         try {
             const { userId } = req.params;
-            const cvs = await prisma.cV.findMany({ where: { userId } });
-            
-            res.status(200).json(cvs);
-        }
-        catch(e) {
-            res.status(500).json({ e: 'Failed to retrieve CVs' });
+
+            const cvs = await prisma.cV.findMany({
+                where: { userId },
+                select: {
+                    id: true,
+                    data: true,
+                }
+            });
+
+            return res.status(200).json(cvs);
+        } catch (e) {
+            console.error('Error fetching CVs:', e);
+            return res.status(500).json({ error: 'Error al obtener los CVs' });
         }
     }
 
-    async getCvById(req: Request, res: Response) {
+    // Obtener un CV específico
+    async getCVById(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            const cv = await prisma.cV.findUnique({ where: { id } });
-            
+
+            const cv = await prisma.cV.findUnique({
+                where: { id },
+                select: {
+                    id: true,
+                    userId: true,
+                    data: true,
+                }
+            });
+
             if (!cv) {
-                return res.status(404).json({ error: 'CV not found' });
-            };
+                return res.status(404).json({ error: 'CV no encontrado' });
+            }
 
-            //TODO get from bucket
-
-            res.status(200).json(cv);
+            return res.status(200).json(cv);
+        } catch (e) {
+            console.error('Error fetching CV:', e);
+            return res.status(500).json({ error: 'Error al obtener el CV' });
         }
-        catch(e) {
-            res.status(500).json({ e: 'Failed to retrieve CV' });
-        }
-
     }
 
+    // Crear un nuevo CV
+    async createCV(req: Request, res: Response) {
+        try {
+            const { userId, data } = req.body;
+
+            if (!userId || !data) {
+                return res.status(400).json({ error: 'userId y data son requeridos' });
+            }
+
+            const cv = await prisma.cV.create({
+                data: {
+                    userId,
+                    data,
+                },
+                select: {
+                    id: true,
+                    userId: true,
+                    data: true,
+                }
+            });
+
+            return res.status(201).json({
+                message: 'CV creado exitosamente',
+                cv
+            });
+        } catch (e) {
+            console.error('Error creating CV:', e);
+            return res.status(500).json({ error: 'Error al crear el CV' });
+        }
+    }
+
+    // Actualizar un CV existente
     async updateCV(req: Request, res: Response) {
         try {
-            const { cvId } = req.params;
+            const { id } = req.params;
             const { data } = req.body;
 
-            const cv = await prisma.cV.findUnique({ where: { id: cvId } });
-
-            if(!cv) {
-                return res.status(404).json({ error: 'CV doesnt exist' });
+            if (!data) {
+                return res.status(400).json({ error: 'data es requerido' });
             }
-            
-            const updatedCV = await prisma.cV.update({
-                where: { id: cvId },
-                data: { data },
+
+            const existingCV = await prisma.cV.findUnique({
+                where: { id }
             });
-            
-            res.status(200).json(updatedCV);
-        }
-        catch(e) {
-            res.status(500).json({ e: 'Failed to update CV' });
-        }
-    }
 
-    async deleteCV(req: Request, res: Response) {
-         try {
-            const { cvId } = req.params;
-            const cv = await prisma.cV.findUnique({ where: { id: cvId } });
-
-            if(!cv) {
-                return res.status(404).json({ error: 'CV doesnt exist' });
+            if (!existingCV) {
+                return res.status(404).json({ error: 'CV no encontrado' });
             }
 
-            await prisma.cV.delete({ where: { id: cvId } });
+            const cv = await prisma.cV.update({
+                where: { id },
+                data: { data },
+                select: {
+                    id: true,
+                    userId: true,
+                    data: true,
+                }
+            });
 
-            //TODO delete from bucket
-            
-            res.status(204).send();
-        } 
-        catch (e) {
-            res.status(500).json({ error: 'Failed to delete CV' });
+            return res.status(200).json({
+                message: 'CV actualizado exitosamente',
+                cv
+            });
+        } catch (e) {
+            console.error('Error updating CV:', e);
+            return res.status(500).json({ error: 'Error al actualizar el CV' });
         }
     }
 
+    // Eliminar un CV
+    async deleteCV(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+
+            const existingCV = await prisma.cV.findUnique({
+                where: { id }
+            });
+
+            if (!existingCV) {
+                return res.status(404).json({ error: 'CV no encontrado' });
+            }
+
+            await prisma.cV.delete({
+                where: { id }
+            });
+
+            return res.status(200).json({
+                message: 'CV eliminado exitosamente'
+            });
+        } catch (e) {
+            console.error('Error deleting CV:', e);
+            return res.status(500).json({ error: 'Error al eliminar el CV' });
+        }
+    }
 }
 
-export default new CvController();
+export default new CVController();
