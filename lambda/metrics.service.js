@@ -61,7 +61,7 @@ class MetricsServiceLambda {
         }
     }
 
-    async registrarTamañoPDF(tamanoBytesBytes, templateId) {
+    async registrarTamañoPDF(tamanoBytes, templateId) {
         try {
             await cloudwatchClient.send(new PutMetricDataCommand({
                 Namespace: this.namespace,
