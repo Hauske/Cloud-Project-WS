@@ -1,14 +1,11 @@
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const metricsService = require('./metrics.service');
 
 const s3Client = new S3Client();
 
 exports.handler = async (event) => {
     let browser = null;
-    const lambdaStart = Date.now();
-    let templateId = 'unknown';
     
     try {
         console.log('Evento recibido:', JSON.stringify(event, null, 2));
@@ -18,13 +15,13 @@ exports.handler = async (event) => {
             payload = JSON.parse(event.body);
         }
         
-        const { cvId, htmlContent, s3Bucket, userName, templateId: reqTemplateId, cvTitle } = payload;
-        templateId = reqTemplateId || 'executive';
+        const { cvId, htmlContent, s3Bucket, userName, templateId, cvTitle } = payload;
         
         if (!htmlContent || !s3Bucket) {
             throw new Error('Faltan parámetros requeridos: cvId, htmlContent, s3Bucket');
         }
         
+        // Mapeo de templateId a nombres legibles
         const templateNames = {
             'executive': 'Ejecutivo',
             'minimal-premium': 'Minimalista',
@@ -45,8 +42,6 @@ exports.handler = async (event) => {
         
         // Iniciar Chromium
         console.log('Iniciando Chromium...');
-        const pdfStart = Date.now();
-        
         browser = await puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
@@ -76,19 +71,10 @@ exports.handler = async (event) => {
             }
         });
         
-        const pdfDuration = Date.now() - pdfStart;
-        const pdfSize = pdfBuffer.length;
-        
-        console.log('PDF generado, tamaño:', pdfSize, 'bytes, tiempo:', pdfDuration, 'ms');
-        
-        // Registrar métricas de generación de PDF
-        await metricsService.registrarTiempoEjecucionLambda(pdfDuration, templateId);
-        await metricsService.registrarTamañoPDF(pdfSize, templateId);
+        console.log('PDF generado, tamaño:', pdfBuffer.length, 'bytes');
         
         // Subir a S3
         console.log('Subiendo a S3...');
-        const s3Start = Date.now();
-        
         const uploadCommand = new PutObjectCommand({
             Bucket: s3Bucket,
             Key: fileName,
@@ -98,13 +84,8 @@ exports.handler = async (event) => {
         
         await s3Client.send(uploadCommand);
         
-        const s3Duration = Date.now() - s3Start;
         const pdfUrl = `https://${s3Bucket}.s3.amazonaws.com/${fileName}`;
-        console.log('PDF subido exitosamente:', pdfUrl, 'Tiempo S3:', s3Duration, 'ms');
-        
-        // Registrar métrica de éxito
-        const totalDuration = Date.now() - lambdaStart;
-        await metricsService.registrarMetricaPDF(totalDuration, 200, templateId);
+        console.log('PDF subido exitosamente:', pdfUrl);
         
         return {
             statusCode: 200,
@@ -116,23 +97,12 @@ exports.handler = async (event) => {
                 message: 'PDF generado exitosamente',
                 pdfUrl: pdfUrl,
                 fileName: fileName,
-                cvId: cvId,
-                metrics: {
-                    pdfGenerationTime: pdfDuration,
-                    s3UploadTime: s3Duration,
-                    totalTime: totalDuration,
-                    pdfSize: pdfSize
-                }
+                cvId: cvId
             })
         };
         
     } catch (error) {
         console.error('Error en Lambda:', error);
-        
-        // Registrar métrica de error
-        const totalDuration = Date.now() - lambdaStart;
-        await metricsService.registrarErrorLambda(templateId, error.message);
-        await metricsService.registrarMetricaPDF(totalDuration, 500, templateId);
         
         return {
             statusCode: 500,

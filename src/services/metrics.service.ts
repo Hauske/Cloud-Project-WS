@@ -6,9 +6,12 @@ const cloudwatchClient = new CloudWatchClient({
 
 export class MetricsService {
     private namespace = 'CVCloud/Backend';
-    private environment = process.env.NODE_ENV || 'local';
+    private environment = process.env.NODE_ENV || 'production';
+    private enabled = true; // Cambiar a false para desactivar temporalmente
 
     async registrarMetricaHTTP(metodo: string, ruta: string, statusCode: number) {
+        if (!this.enabled) return;
+        
         const rangoStatus = this.obtenerRangoStatus(statusCode);
 
         try {
@@ -21,20 +24,24 @@ export class MetricsService {
                         Unit: 'Count',
                         Dimensions: [
                             { Name: 'Method', Value: metodo },
-                            { Name: 'StatusRange', Value: rangoStatus },
                             { Name: 'Route', Value: ruta },
+                            { Name: 'StatusRange', Value: rangoStatus },
                             { Name: 'Environment', Value: this.environment }
                         ],
                         Timestamp: new Date()
                     }
                 ]
             }));
+            
+            console.log(`[METRICS] HTTPRequest: ${metodo} ${ruta} - ${statusCode}`);
         } catch (error) {
-            console.error(`[METRICS] Error al enviar HTTPRequests a CloudWatch:`, error);
+            console.error('[METRICS] Error al registrar métrica HTTP:', error);
         }
     }
 
-    async registrarTiempoEjecucion(ruta: string, duracionMs: number) {
+    async registrarTiempoEjecucion(ruta: string, duracionMs: number, metodo: string) {
+        if (!this.enabled) return;
+        
         try {
             await cloudwatchClient.send(new PutMetricDataCommand({
                 Namespace: this.namespace,
@@ -45,20 +52,23 @@ export class MetricsService {
                         Unit: 'Milliseconds',
                         Dimensions: [
                             { Name: 'Route', Value: ruta },
+                            { Name: 'Method', Value: metodo },
                             { Name: 'Environment', Value: this.environment }
                         ],
                         Timestamp: new Date()
                     }
                 ]
             }));
+            
+            console.log(`[METRICS] ResponseTime: ${ruta} - ${duracionMs}ms`);
         } catch (error) {
-            console.error(`[METRICS] Error al enviar ResponseTime a CloudWatch:`, error);
+            console.error('[METRICS] Error al registrar tiempo:', error);
         }
     }
 
-    async registrarErrorMetrica(ruta: string, statusCode: number) {
-        const rangoStatus = this.obtenerRangoStatus(statusCode);
-
+    async registrarError(ruta: string, errorType: string, metodo: string) {
+        if (!this.enabled) return;
+        
         try {
             await cloudwatchClient.send(new PutMetricDataCommand({
                 Namespace: this.namespace,
@@ -69,15 +79,18 @@ export class MetricsService {
                         Unit: 'Count',
                         Dimensions: [
                             { Name: 'Route', Value: ruta },
-                            { Name: 'StatusRange', Value: rangoStatus },
+                            { Name: 'Method', Value: metodo },
+                            { Name: 'ErrorType', Value: errorType },
                             { Name: 'Environment', Value: this.environment }
                         ],
                         Timestamp: new Date()
                     }
                 ]
             }));
+            
+            console.log(`[METRICS] Error: ${errorType} en ${ruta}`);
         } catch (error) {
-            console.error(`[METRICS] Error al enviar métrica de errores:`, error);
+            console.error('[METRICS] Error al registrar error:', error);
         }
     }
 
